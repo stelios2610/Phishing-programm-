@@ -7,6 +7,8 @@ import re
 from dataclasses import dataclass
 from urllib.parse import parse_qs, unquote, urlparse
 
+from phishguard.lures import fully_unquote, unwrap_security_wrapper
+
 _SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 
 
@@ -29,6 +31,10 @@ class ParsedURL:
     tld: str
     punycode_used: bool
     decode_notes: tuple[str, ...]
+
+
+def _hxxp_to_http(url: str) -> str:
+    return re.sub(r"(?i)^hxxps://", "https://", re.sub(r"(?i)^hxxp://", "http://", url))
 
 
 def ensure_scheme(raw: str) -> str:
@@ -141,7 +147,11 @@ def parse_url(raw: str) -> ParsedURL:
     notes: list[str] = []
     working = original
     # Strip wrapping quotes/brackets commonly copied from emails
-    working = working.strip("<>\"'")
+    working = _hxxp_to_http(working.strip("<>\"'"))
+    inner, via = unwrap_security_wrapper(working)
+    if via:
+        notes.append("unwrapped:" + via)
+        working = inner
 
     lowered = working.lower()
     if lowered.startswith(("javascript:", "data:", "vbscript:")):
@@ -183,7 +193,7 @@ def parse_url(raw: str) -> ParsedURL:
     labels = tuple(l for l in unicode_host.split(".") if l) if not is_ip else ()
     etld1, tld = ("", "") if is_ip else _etld_plus_one(unicode_host)
 
-    path = unquote(parsed.path or "")
+    path = fully_unquote(parsed.path or "")
     query = parsed.query or ""
     fragment = parsed.fragment or ""
 

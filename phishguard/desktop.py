@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
 
@@ -60,6 +61,7 @@ class PhishGuardApp:
         self.root.geometry("920x720")
         self.root.minsize(720, 560)
         self.root.configure(bg=COLORS["bg"])
+        self._logo_img = None
         self._build()
 
     def _t(self, key: str) -> str:
@@ -69,6 +71,15 @@ class PhishGuardApp:
         pad = {"padx": 20, "pady": 6}
         header = tk.Frame(self.root, bg=COLORS["bg"])
         header.pack(fill="x", **pad)
+        logo_path = Path(__file__).resolve().parent / "static" / "logo-64.png"
+        self._logo_img = None
+        if logo_path.exists():
+            try:
+                self._logo_img = tk.PhotoImage(file=str(logo_path))
+                tk.Label(header, image=self._logo_img, bg=COLORS["bg"], bd=0).pack(side="left", padx=(0, 10))
+                self.root.iconphoto(True, self._logo_img)
+            except tk.TclError:
+                self._logo_img = None
         tk.Label(
             header,
             text="PhishGuard",

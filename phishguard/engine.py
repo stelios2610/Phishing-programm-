@@ -18,6 +18,16 @@ from phishguard.brands import (
     official_brand_for_host,
 )
 from phishguard.confusables import fold_confusables, has_invisible, has_mixed_scripts
+from phishguard.lures import (
+    HOST_CREDENTIAL_TOKENS,
+    dangerous_share_ext,
+    filename_from_path,
+    has_invisible as lure_invisible,
+    is_cloud_share_host,
+    looks_like_html_or_email,
+    lure_hits,
+    sentence_filename,
+)
 from phishguard.parser import ParsedURL, parse_url, query_pairs
 
 KEYBOARD_ADJACENT = {
@@ -368,10 +378,10 @@ def _findings_for(parsed: ParsedURL) -> tuple[list[Finding], str | None, str | N
                 "user_content_host",
                 "Free / user-content hosting",
                 "Δωρεάν / user-content hosting",
-                "Anyone can publish a site on this host. Brand logos here are not proof of authenticity.",
-                "Οποιοσδήποτε μπορεί να δημοσιεύσει σελίδα εδώ. Τα λογότυπα δεν αποδεικνύουν αυθεντικότητα.",
-                "medium",
-                25,
+                "Anyone can publish a site on this host. Fake login pages are often hosted here.",
+                "Οποιοσδήποτε μπορεί να δημοσιεύσει σελίδα εδώ. Οι ψεύτικες σελίδες login συχνά φιλοξενούνται εδώ.",
+                "high",
+                48,
             )
         )
 
@@ -471,7 +481,9 @@ def _findings_for(parsed: ParsedURL) -> tuple[list[Finding], str | None, str | N
                 )
 
     # Path / query brand + keywords
-    path_q = fold_confusables((parsed.path + "?" + parsed.query).lower())
+    decoded_path = parsed.path
+    filename = filename_from_path(decoded_path)
+    path_q = fold_confusables((decoded_path + "?" + parsed.query).lower())
     compact_path = re.sub(r"[^a-z0-9]", "", path_q)
     path_brand: str | None = None
     for brand in BRANDS:
@@ -507,6 +519,96 @@ def _findings_for(parsed: ParsedURL) -> tuple[list[Finding], str | None, str | N
                 "Το path ή το query περιέχει: " + ", ".join(sorted(set(keyword_hits))[:8]),
                 "medium",
                 22,
+            )
+        )
+
+    host_cred = [t for t in HOST_CREDENTIAL_TOKENS if t in folded_host.replace(".", "-")]
+    if host_cred and official is None:
+        findings.append(
+            Finding(
+                "host_login_tokens",
+                "Login-style hostname",
+                "Hostname τύπου login",
+                "Host contains: " + ", ".join(sorted(set(host_cred))[:8]),
+                "Το host περιέχει: " + ", ".join(sorted(set(host_cred))[:8]),
+                "high" if len(set(host_cred)) >= 2 else "medium",
+                40 if len(set(host_cred)) >= 2 else 24,
+            )
+        )
+
+    hits = lure_hits(decoded_path + " " + filename)
+    if hits:
+        findings.append(
+            Finding(
+                "lure_filename",
+                "Filename is a phishing instruction",
+                "Το όνομα αρχείου είναι οδηγία phishing",
+                "The file is not named like a document. It says: " + ", ".join(hits[:4]),
+                "Το αρχείο δεν έχει κανονικό όνομα. Λέει: " + ", ".join(hits[:4]),
+                "critical",
+                80,
+            )
+        )
+    if sentence_filename(filename):
+        findings.append(
+            Finding(
+                "sentence_filename",
+                "Whole sentence used as filename",
+                "Ολόκληρη πρόταση ως όνομα αρχείου",
+                f"«{filename[:120]}» looks like a message to the user, not a file.",
+                f"«{filename[:120]}» μοιάζει με μήνυμα προς τον χρήστη, όχι με έγγραφο.",
+                "high",
+                40,
+            )
+        )
+    if lure_invisible(decoded_path) or lure_invisible(filename) or lure_invisible(parsed.original):
+        findings.append(
+            Finding(
+                "invisible_in_path",
+                "Hidden character in filename/path",
+                "Κρυφός χαρακτήρας στο όνομα αρχείου",
+                "NBSP or zero-width characters disguise a lure filename.",
+                "NBSP ή αόρατοι χαρακτήρες κρύβουν δόλωμα στο όνομα αρχείου.",
+                "high",
+                40,
+            )
+        )
+    cloud = is_cloud_share_host(host_l)
+    if cloud and (hits or sentence_filename(filename)):
+        findings.append(
+            Finding(
+                "trusted_host_lure",
+                "Real SharePoint/OneDrive, fake content",
+                "Αληθινό SharePoint/OneDrive, ψεύτικο περιεχόμενο",
+                "The domain belongs to Microsoft/Google/Dropbox. That does not make the file safe. Attackers share HTML/PDF lures from compromised accounts.",
+                "Το domain είναι της Microsoft/Google/Dropbox. Αυτό δεν σημαίνει ότι το αρχείο είναι ασφαλές. Οι επιτιθέμενοι μοιράζουν δολώματα από παραβιασμένους λογαριασμούς.",
+                "critical",
+                70,
+            )
+        )
+    ext = dangerous_share_ext(filename)
+    if cloud and ext:
+        findings.append(
+            Finding(
+                "dangerous_share_ext",
+                f".{ext} file on a cloud share",
+                f"Αρχείο .{ext} σε cloud share",
+                "HTML/script files on OneDrive/SharePoint are a common credential-phishing kit.",
+                "Τα HTML/script αρχεία σε OneDrive/SharePoint χρησιμοποιούνται για κλοπή κωδικών.",
+                "high",
+                55,
+            )
+        )
+    if any(n.startswith("unwrapped:") for n in parsed.decode_notes):
+        findings.append(
+            Finding(
+                "unwrapped",
+                "SafeLinks / gateway wrapper",
+                "Ο σύνδεσμος ήταν τυλιγμένος (SafeLinks)",
+                "Analyzed the inner URL, not the Outlook wrapper.",
+                "Αναλύθηκε ο εσωτερικός σύνδεσμος, όχι το SafeLinks.",
+                "info",
+                0,
             )
         )
 
@@ -633,8 +735,8 @@ def _findings_for(parsed: ParsedURL) -> tuple[list[Finding], str | None, str | N
             )
         )
 
-    # official domain extra trust finding
-    if official and not any(f.severity == "critical" for f in findings):
+    # official domain extra trust finding — never for lure files on SharePoint
+    if official and not any(f.severity in {"critical", "high"} for f in findings):
         findings.insert(
             0,
             Finding(
@@ -666,16 +768,177 @@ def _findings_for(parsed: ParsedURL) -> tuple[list[Finding], str | None, str | N
 
 
 def _verdict(score: int, findings: list[Finding], official: str | None) -> str:
+    codes = {f.code for f in findings}
     critical = any(f.severity == "critical" for f in findings)
     if any(f.code == "dangerous_scheme" for f in findings):
         return "dangerous"
-    if critical or score >= 70:
+    if codes & {"lure_filename", "trusted_host_lure", "brand_impersonation", "typosquat", "domain_as_subdomain"}:
         return "phishing"
-    if score >= 35:
+    if critical or score >= 55:
+        return "phishing"
+    if score >= 30:
         return "suspicious"
     if official and score < 20:
         return "official"
     return "likely_safe"
+
+
+def _analyze_parsed(raw: str, parsed: ParsedURL) -> Analysis:
+    findings, impersonated, official_name, signals = _findings_for(parsed)
+    uniq: list[Finding] = []
+    seen: set[str] = set()
+    for f in findings:
+        key = f.code + f.title
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(f)
+
+    raw_score = sum(f.score for f in uniq)
+    score = min(100, raw_score)
+    if any(f.code in {"lure_filename", "trusted_host_lure", "href_mismatch"} for f in uniq):
+        score = min(100, max(score, 85))
+    if sum(1 for f in uniq if f.severity in {"high", "critical"}) >= 2:
+        score = min(100, max(score, 70))
+    if sum(1 for f in uniq if f.severity in {"high", "critical"}) >= 3:
+        score = min(100, max(score, 85))
+
+    verdict = _verdict(score, uniq, official_name)
+    return Analysis(
+        url=raw,
+        normalized=parsed.normalized,
+        host=parsed.host,
+        host_unicode=parsed.host_unicode,
+        verdict=verdict,
+        verdict_el=VERDICT_EL[verdict],
+        score=score,
+        risk_percent=score,
+        impersonated_brand=impersonated,
+        official_brand=official_name,
+        findings=tuple(uniq),
+        signals=signals,
+    )
+
+
+def _analyze_blob(text: str) -> Analysis:
+    from html.parser import HTMLParser
+
+    class HrefParser(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__(convert_charrefs=True)
+            self.pairs: list[tuple[str, str]] = []
+            self._href: str | None = None
+            self._buf: list[str] = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "a":
+                href = dict(attrs).get("href")
+                if href:
+                    self._href = href
+                    self._buf = []
+
+        def handle_data(self, data):
+            if self._href is not None:
+                self._buf.append(data)
+
+        def handle_endtag(self, tag):
+            if tag == "a" and self._href is not None:
+                self.pairs.append(("".join(self._buf), self._href))
+                self._href = None
+                self._buf = []
+
+    extra: list[Finding] = []
+    parser = HrefParser()
+    try:
+        parser.feed(text)
+        parser.close()
+    except Exception:
+        parser.pairs = []
+    for shown, href in parser.pairs:
+        shown_s = " ".join(shown.split())
+        href_s = href.strip()
+        if not href_s or href_s.startswith("#") or href_s.lower().startswith("mailto:"):
+            continue
+        if "://" in shown_s or shown_s.lower().startswith("www."):
+            extra.append(
+                Finding(
+                    "href_mismatch",
+                    "Link text does not match destination",
+                    "Το κείμενο του συνδέσμου δεν ταιριάζει με τον προορισμό",
+                    f"Shown as «{shown_s[:80]}» but goes to «{href_s[:120]}».",
+                    f"Φαίνεται «{shown_s[:80]}» αλλά πάει στο «{href_s[:120]}».",
+                    "critical",
+                    80,
+                )
+            )
+
+    urls = re.findall(r"https?://[^\s<>\"']+", text, flags=re.I)
+    urls += [href for _s, href in parser.pairs if href.lower().startswith("http")]
+    # unique preserve order
+    seen_u: set[str] = set()
+    uniq_urls: list[str] = []
+    for u in urls:
+        u = u.rstrip(").,;]")
+        if u not in seen_u:
+            seen_u.add(u)
+            uniq_urls.append(u)
+    if not uniq_urls and extra:
+        # HTML lure with only relative hrefs
+        dummy = parse_url("https://invalid.invalid/")
+        findings, impersonated, official_name, signals = [], None, None, {"blob": True}
+        uniq = extra
+        score = min(100, sum(f.score for f in uniq))
+        verdict = _verdict(score, uniq, None)
+        return Analysis(
+            url=text[:200],
+            normalized="",
+            host="",
+            host_unicode="",
+            verdict=verdict,
+            verdict_el=VERDICT_EL[verdict],
+            score=min(100, max(score, 85)),
+            risk_percent=min(100, max(score, 85)),
+            impersonated_brand=None,
+            official_brand=None,
+            findings=tuple(uniq),
+            signals={"blob": True, "href_mismatches": len(extra)},
+        )
+    if not uniq_urls:
+        return _analyze_parsed(text, parse_url(text.split()[0] if text.split() else text))
+
+    best = _analyze_parsed(uniq_urls[0], parse_url(uniq_urls[0]))
+    all_findings = list(best.findings) + extra
+    for u in uniq_urls[1:]:
+        other = _analyze_parsed(u, parse_url(u))
+        if other.score > best.score:
+            best = other
+        all_findings.extend(other.findings)
+    uniq_f: list[Finding] = []
+    seen_k: set[str] = set()
+    for f in all_findings:
+        k = f.code + f.title
+        if k in seen_k:
+            continue
+        seen_k.add(k)
+        uniq_f.append(f)
+    score = min(100, max(best.score, sum(f.score for f in extra)))
+    if extra:
+        score = min(100, max(score, 85))
+    verdict = _verdict(score, uniq_f, best.official_brand)
+    return Analysis(
+        url=best.url,
+        normalized=best.normalized,
+        host=best.host,
+        host_unicode=best.host_unicode,
+        verdict=verdict,
+        verdict_el=VERDICT_EL[verdict],
+        score=score,
+        risk_percent=score,
+        impersonated_brand=best.impersonated_brand,
+        official_brand=best.official_brand,
+        findings=tuple(uniq_f),
+        signals={**best.signals, "blob": True, "url_count": len(uniq_urls)},
+    )
 
 
 def analyze(url: str) -> Analysis:
@@ -705,6 +968,10 @@ def analyze(url: str) -> Analysis:
             signals={},
         )
 
+    first = raw.split()[0] if raw.split() else raw
+    if looks_like_html_or_email(raw) and not re.match(r"(?i)^(https?|hxxps?)://", first):
+        return _analyze_blob(raw)
+
     try:
         parsed = parse_url(raw)
     except Exception as exc:
@@ -731,36 +998,4 @@ def analyze(url: str) -> Analysis:
             findings=(f,),
             signals={"error": str(exc)},
         )
-
-    findings, impersonated, official_name, signals = _findings_for(parsed)
-    # de-dupe by code+title
-    uniq: list[Finding] = []
-    seen: set[str] = set()
-    for f in findings:
-        key = f.code + f.title
-        if key in seen:
-            continue
-        seen.add(key)
-        uniq.append(f)
-
-    raw_score = sum(f.score for f in uniq)
-    # cap + boost if multiple independent high signals
-    score = min(100, raw_score)
-    if sum(1 for f in uniq if f.severity in {"high", "critical"}) >= 3:
-        score = min(100, max(score, 85))
-
-    verdict = _verdict(score, uniq, official_name)
-    return Analysis(
-        url=raw,
-        normalized=parsed.normalized,
-        host=parsed.host,
-        host_unicode=parsed.host_unicode,
-        verdict=verdict,
-        verdict_el=VERDICT_EL[verdict],
-        score=score,
-        risk_percent=score,
-        impersonated_brand=impersonated,
-        official_brand=official_name,
-        findings=tuple(uniq),
-        signals=signals,
-    )
+    return _analyze_parsed(raw, parsed)

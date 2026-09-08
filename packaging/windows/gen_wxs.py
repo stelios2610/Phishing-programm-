@@ -83,6 +83,9 @@ def main() -> None:
                         Name="PhishGuard" WorkingDirectory="INSTALLDIR" Icon="AppIcon" Advertise="no" />
             </File>
           </Component>
+          <Component Id="LogoBmp" Guid="C8E1A2B3-4455-4D6E-8F90-1234567890AB" Win64="yes">
+            <File Id="LogoBmpFile" Name="logo.bmp" Source="{xml_escape(str(stage / "logo.bmp"))}" KeyPath="yes" />
+          </Component>
           <Directory Id="RuntimeDir" Name="runtime">
 {runtime_inner}
             <Directory Id="PhishPkgDir" Name="phishguard">
@@ -103,6 +106,7 @@ def main() -> None:
     </Directory>
     <Feature Id="Main" Title="PhishGuard" Level="1">
       <ComponentRef Id="MainExe" />
+      <ComponentRef Id="LogoBmp" />
       <ComponentRef Id="StartMenuDir" />
 {chr(10).join(refs)}
     </Feature>

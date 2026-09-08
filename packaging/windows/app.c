@@ -15,14 +15,17 @@
 #define IDC_VERDICT 104
 #define IDC_META 105
 #define IDC_OUT 106
+#define IDC_LOGO 107
+#define IDC_TITLE 108
 #define IDC_EX0 200
 
 #define MAX_URL 8000
 #define MAX_OUT 32000
 
-static HWND g_url, g_verdict, g_meta, g_out, g_analyze, g_lang;
+static HWND g_url, g_verdict, g_meta, g_out, g_analyze, g_lang, g_logo, g_title;
 static HFONT g_font, g_fontBig;
 static HBRUSH g_bg, g_edit;
+static HBITMAP g_bmp = NULL;
 static int g_el = 1;
 static wchar_t g_exedir[MAX_PATH];
 
@@ -209,6 +212,8 @@ static void do_analyze(HWND hwnd) {
 static void layout(HWND hwnd) {
     RECT rc; GetClientRect(hwnd, &rc);
     int w = rc.right, y = 16;
+    MoveWindow(g_logo, 16, 10, 48, 48, TRUE);
+    MoveWindow(g_title, 76, 18, 280, 32, TRUE);
     MoveWindow(g_lang, w - 90, 16, 70, 28, TRUE);
     MoveWindow(g_url, 20, 56, w - 170, 32, TRUE);
     MoveWindow(g_analyze, w - 140, 56, 120, 32, TRUE);
@@ -231,7 +236,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         g_edit = CreateSolidBrush(RGB(11, 15, 24));
         g_font = CreateFontW(-16, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
         g_fontBig = CreateFontW(-22, 0, 0, 0, FW_BOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-        CreateWindowW(L"STATIC", L"PhishGuard", WS_CHILD | WS_VISIBLE, 20, 14, 300, 32, hwnd, NULL, NULL, NULL);
+        g_logo = CreateWindowW(L"STATIC", NULL, WS_CHILD | WS_VISIBLE | SS_BITMAP | SS_CENTERIMAGE,
+                               16, 10, 48, 48, hwnd, (HMENU)(INT_PTR)IDC_LOGO, NULL, NULL);
+        {
+            wchar_t bmp[MAX_PATH];
+            StringCchPrintfW(bmp, MAX_PATH, L"%s\\logo.bmp", g_exedir);
+            g_bmp = (HBITMAP)LoadImageW(NULL, bmp, IMAGE_BITMAP, 48, 48, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+            if (g_bmp)
+                SendMessageW(g_logo, STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)g_bmp);
+        }
+        g_title = CreateWindowW(L"STATIC", L"PhishGuard", WS_CHILD | WS_VISIBLE, 76, 18, 300, 32, hwnd, (HMENU)(INT_PTR)IDC_TITLE, NULL, NULL);
         g_lang = CreateWindowW(L"BUTTON", L"EL / EN", WS_CHILD | WS_VISIBLE, 0, 0, 70, 28, hwnd, (HMENU)(INT_PTR)IDC_LANG, NULL, NULL);
         g_url = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
                                 0, 0, 100, 28, hwnd, (HMENU)(INT_PTR)IDC_URL, NULL, NULL);
@@ -245,7 +259,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         g_out = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
                                 WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL,
                                 0, 0, 100, 100, hwnd, (HMENU)(INT_PTR)IDC_OUT, NULL, NULL);
-        HWND title = GetWindow(hwnd, GW_CHILD);
+        HWND title = g_title;
         SendMessageW(title, WM_SETFONT, (WPARAM)g_fontBig, TRUE);
         SendMessageW(g_url, WM_SETFONT, (WPARAM)g_font, TRUE);
         SendMessageW(g_analyze, WM_SETFONT, (WPARAM)g_font, TRUE);
@@ -293,6 +307,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
     case WM_DESTROY:
         DeleteObject(g_bg); DeleteObject(g_edit); DeleteObject(g_font); DeleteObject(g_fontBig);
+        if (g_bmp) DeleteObject(g_bmp);
         PostQuitMessage(0);
         return 0;
     }
@@ -304,14 +319,16 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE hprev, LPWSTR cmd, int show) {
     set_exe_dir();
     INITCOMMONCONTROLSEX icc = {sizeof(icc), ICC_STANDARD_CLASSES};
     InitCommonControlsEx(&icc);
-    WNDCLASSW wc = {0};
+    WNDCLASSEXW wc = {0};
+    wc.cbSize = sizeof(wc);
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hi;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = CreateSolidBrush(RGB(7, 9, 15));
     wc.lpszClassName = L"PhishGuardWindow";
     wc.hIcon = LoadIconW(hi, MAKEINTRESOURCEW(1));
-    RegisterClassW(&wc);
+    wc.hIconSm = (HICON)LoadImageW(hi, MAKEINTRESOURCEW(1), IMAGE_ICON, 16, 16, 0);
+    RegisterClassExW(&wc);
     HWND hwnd = CreateWindowExW(0, wc.lpszClassName, L"PhishGuard",
                                 WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                                 CW_USEDEFAULT, CW_USEDEFAULT, 980, 720,

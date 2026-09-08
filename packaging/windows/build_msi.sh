@@ -15,24 +15,7 @@ rm -rf "$STAGE"
 mkdir -p "$RUNTIME" "$RELEASE" "$STAGE"
 cd "$ROOT"
 
-python3 - <<'PY'
-from pathlib import Path
-try:
-    from PIL import Image, ImageDraw
-except ImportError:
-    import subprocess, sys
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "pillow"])
-    from PIL import Image, ImageDraw
-
-img = Image.new("RGBA", (256, 256), (7, 9, 15, 255))
-d = ImageDraw.Draw(img)
-d.rounded_rectangle((24, 24, 232, 232), radius=48, fill=(26, 39, 68, 255))
-d.polygon([(128, 48), (208, 88), (208, 150), (128, 208), (48, 150), (48, 88)], fill=(110, 168, 255, 255))
-d.polygon([(128, 72), (184, 100), (184, 144), (128, 180), (72, 144), (72, 100)], fill=(7, 9, 15, 255))
-img.save("packaging/windows/icon_src.png")
-img.save("packaging/windows/phishguard.ico", sizes=[(s, s) for s in (16, 32, 48, 64, 128, 256)])
-print("wrote ico")
-PY
+echo "Using packaged PhishGuard logo (ICO/BMP)"
 
 echo "Downloading embeddable CPython ${PYVER}..."
 curl -fsSL "$URL" -o "$ZIP"
@@ -57,9 +40,10 @@ cp "$ROOT/phishguard/engine.py" "$RUNTIME/phishguard/"
 cp "$ROOT/phishguard/brands.py" "$RUNTIME/phishguard/"
 cp "$ROOT/phishguard/parser.py" "$RUNTIME/phishguard/"
 cp "$ROOT/phishguard/confusables.py" "$RUNTIME/phishguard/"
-# Windows launcher helper (stdin URL -> report)
+cp "$ROOT/phishguard/lures.py" "$RUNTIME/phishguard/"
 cp "$ROOT/packaging/windows/analyze_bridge.py" "$RUNTIME/"
-# desktop.py is optional; skip FastAPI/static to keep the MSI small
+cp "$ROOT/packaging/windows/logo.bmp" "$STAGE/logo.bmp"
+cp "$ROOT/phishguard/static/logo-64.png" "$STAGE/logo-64.png"
 
 x86_64-w64-mingw32-windres -I "$ROOT/packaging/windows" \
   "$ROOT/packaging/windows/app.rc" -O coff -o "$STAGE/app.res"

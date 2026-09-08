@@ -53,7 +53,6 @@ USER_CONTENT_SUFFIXES: tuple[str, ...] = (
     "blogspot.com",
     "blogspot.gr",
     "sites.google.com",
-    "sharepoint.com",  # tenants exist, but brand+random tenant is handled separately
     "duckdns.org",
     "hopto.org",
     "no-ip.org",
@@ -260,6 +259,7 @@ BRANDS: tuple[Brand, ...] = (
             "xboxlive.com",
             "bing.com",
             "onedrive.com",
+            "sharepoint.com",
             "1drv.ms",
             "aka.ms",
             "msft.net",
@@ -626,10 +626,6 @@ def is_user_content_host(host: str) -> bool:
 def official_brand_for_host(host: str) -> Brand | None:
     """Return the brand if host is an official property (not user-content)."""
     if is_user_content_host(host):
-        # sharepoint.com tenants: treat as Microsoft official unless we later
-        # detect brand impersonation of a *different* brand.
-        if host_matches_suffix(host, "sharepoint.com"):
-            return next(b for b in BRANDS if b.name == "Microsoft")
         return None
     for brand in BRANDS:
         if any(host_matches_suffix(host, d) for d in brand.domains):
