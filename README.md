@@ -32,7 +32,7 @@
 Για να ξαναχτίσεις το MSI σε Linux:
 
 ```bash
-sudo apt-get install mingw-w64 msitools
+sudo apt-get install mingw-w64 msitools wixl
 bash packaging/windows/build_msi.sh
 ```
 
