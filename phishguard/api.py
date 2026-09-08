@@ -31,7 +31,7 @@ def health() -> dict[str, str]:
 
 @app.post("/api/analyze")
 def api_analyze(body: AnalyzeRequest) -> dict:
-    return analyze(body.url).to_dict()
+    return analyze(body.url, probe=True).to_dict()
 
 
 @app.get("/")

@@ -165,7 +165,7 @@ static BOOL run_analyze(const wchar_t *url, char *out_utf8, DWORD out_cb) {
         total += rd;
     out_utf8[total] = 0;
     CloseHandle(out_r);
-    WaitForSingleObject(pi.hProcess, 15000);
+    WaitForSingleObject(pi.hProcess, 25000);
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
     return total > 0;

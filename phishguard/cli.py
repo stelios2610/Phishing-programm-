@@ -34,7 +34,7 @@ def _print_human(result) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="phishguard",
-        description="Detect phishing URLs locally (Microsoft and other brands). Never fetches the URL.",
+        description="Detect phishing URLs. Reads page HTML (no login, no JavaScript) unless --no-probe.",
     )
     parser.add_argument("urls", nargs="*", help="URL(s) to analyze")
     parser.add_argument("-j", "--json", action="store_true", help="JSON output")
@@ -43,6 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--desktop", action="store_true", help="Open the desktop window")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--no-probe", action="store_true", help="Do not fetch page HTML")
     args = parser.parse_args(argv)
 
     if args.desktop:
@@ -67,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 2
 
-    results = [analyze(u) for u in urls]
+    results = [analyze(u, probe=not args.no_probe) for u in urls]
     if args.json:
         if len(results) == 1:
             print(json.dumps(results[0].to_dict(), ensure_ascii=False, indent=2))

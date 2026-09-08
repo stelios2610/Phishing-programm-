@@ -24,7 +24,7 @@
 - [`release/PhishGuard-Setup.msi`](release/PhishGuard-Setup.msi) (~12 MB, Windows 10/11 64-bit)
 - [`release/msi-phishscan.zip`](release/msi-phishscan.zip) — το ίδιο MSI σε zip
 
-Το παράθυρο έχει λογότυπο (ασπίδα) στη γραμμή τίτλου, στο Start Menu και στην επιφάνεια εργασίας.
+Το παράθυρο Windows κατεβάζει σύντομα το HTML (χωρίς login) για να πιάσει ψεύτικες φόρμες κωδικού.
 
 Εντοπίζει και δολώματα σε **αληθινό SharePoint/OneDrive** (όνομα αρχείου «ασφαλές μήνυμα / click to view»), όχι μόνο ψεύτικα domains.
 

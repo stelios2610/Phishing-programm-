@@ -29,6 +29,8 @@ from phishguard.lures import (
     sentence_filename,
 )
 from phishguard.parser import ParsedURL, parse_url, query_pairs
+from phishguard.page import inspect_html
+from phishguard.probe import fetch_html
 
 KEYBOARD_ADJACENT = {
     "q": "wa",
@@ -772,7 +774,17 @@ def _verdict(score: int, findings: list[Finding], official: str | None) -> str:
     critical = any(f.severity == "critical" for f in findings)
     if any(f.code == "dangerous_scheme" for f in findings):
         return "dangerous"
-    if codes & {"lure_filename", "trusted_host_lure", "brand_impersonation", "typosquat", "domain_as_subdomain"}:
+    if codes & {
+        "lure_filename",
+        "trusted_host_lure",
+        "brand_impersonation",
+        "typosquat",
+        "domain_as_subdomain",
+        "password_form",
+        "brand_in_page",
+        "form_exfil",
+        "page_lure",
+    }:
         return "phishing"
     if critical or score >= 55:
         return "phishing"
@@ -783,8 +795,86 @@ def _verdict(score: int, findings: list[Finding], official: str | None) -> str:
     return "likely_safe"
 
 
-def _analyze_parsed(raw: str, parsed: ParsedURL) -> Analysis:
-    findings, impersonated, official_name, signals = _findings_for(parsed)
+def _page_findings(parsed: ParsedURL, official_name: str | None, impersonated: str | None) -> list[Finding]:
+    if parsed.scheme not in {"http", "https"} or not (parsed.host_unicode or parsed.host):
+        return []
+    if official_name:
+        return []
+    target = parsed.normalized or parsed.original
+    html, err, _status = fetch_html(target)
+    out: list[Finding] = []
+    if err == "ssl:" or (err and err.startswith("ssl:")):
+        out.append(
+            Finding(
+                "tls_error",
+                "TLS / certificate problem",
+                "Πρόβλημα πιστοποιητικού TLS",
+                "The page failed HTTPS checks. Fake sites often use broken certificates.",
+                "Η σελίδα απέτυχε στον έλεγχο HTTPS. Οι ψεύτικες σελίδες συχνά έχουν λάθος πιστοποιητικό.",
+                "high",
+                45,
+            )
+        )
+    if not html:
+        return out
+    sig = inspect_html(html)
+    host = (parsed.host_unicode or parsed.host).lower()
+    if sig.password:
+        out.append(
+            Finding(
+                "password_form",
+                "Login form on an unofficial site",
+                "Φόρμα κωδικού σε μη επίσημο site",
+                "The page asks for a password but the domain is not a known official brand site.",
+                "Η σελίδα ζητάει κωδικό αλλά το domain δεν είναι επίσημο.",
+                "critical",
+                90,
+            )
+        )
+    for brand in sig.brands:
+        out.append(
+            Finding(
+                "brand_in_page",
+                f"Page pretends to be {brand}",
+                f"Η σελίδα παριστάνει την {brand}",
+                f"HTML/title mentions {brand} while the host is '{host}'.",
+                f"Το HTML/τίτλος αναφέρει {brand} ενώ το host είναι '{host}'.",
+                "critical",
+                92,
+            )
+        )
+        impersonated = impersonated or brand
+        break
+    if sig.lures:
+        out.append(
+            Finding(
+                "page_lure",
+                "Phishing lure text in the page",
+                "Κείμενο-δόλωμα στη σελίδα",
+                "Found: " + ", ".join(sig.lures[:4]),
+                "Βρέθηκε: " + ", ".join(sig.lures[:4]),
+                "critical",
+                80,
+            )
+        )
+    for fh in sig.form_hosts:
+        if fh and fh not in host and not host.endswith("." + fh) and not fh.endswith("." + host.split(".", 1)[-1]):
+            out.append(
+                Finding(
+                    "form_exfil",
+                    "Form submits to another domain",
+                    "Η φόρμα στέλνει σε άλλο domain",
+                    f"Form action host is '{fh}', page host is '{host}'.",
+                    f"Το action της φόρμας πάει στο '{fh}', η σελίδα είναι '{host}'.",
+                    "critical",
+                    85,
+                )
+            )
+            break
+    return out
+
+
+def _finalize(raw: str, parsed: ParsedURL, findings: list[Finding], impersonated: str | None, official_name: str | None, signals: dict) -> Analysis:
     uniq: list[Finding] = []
     seen: set[str] = set()
     for f in findings:
@@ -796,14 +886,33 @@ def _analyze_parsed(raw: str, parsed: ParsedURL) -> Analysis:
 
     raw_score = sum(f.score for f in uniq)
     score = min(100, raw_score)
-    if any(f.code in {"lure_filename", "trusted_host_lure", "href_mismatch"} for f in uniq):
+    if any(
+        f.code in {
+            "lure_filename",
+            "trusted_host_lure",
+            "href_mismatch",
+            "password_form",
+            "brand_in_page",
+            "page_lure",
+            "form_exfil",
+        }
+        for f in uniq
+    ):
         score = min(100, max(score, 85))
     if sum(1 for f in uniq if f.severity in {"high", "critical"}) >= 2:
         score = min(100, max(score, 70))
     if sum(1 for f in uniq if f.severity in {"high", "critical"}) >= 3:
         score = min(100, max(score, 85))
 
+    if impersonated is None:
+        for f in uniq:
+            if f.code == "brand_in_page" and "pretends to be " in f.title:
+                impersonated = f.title.split("pretends to be ", 1)[-1]
+                break
+
     verdict = _verdict(score, uniq, official_name)
+    signals = dict(signals)
+    signals["probed"] = any(f.code in {"password_form", "brand_in_page", "tls_error", "page_lure"} for f in uniq)
     return Analysis(
         url=raw,
         normalized=parsed.normalized,
@@ -818,6 +927,17 @@ def _analyze_parsed(raw: str, parsed: ParsedURL) -> Analysis:
         findings=tuple(uniq),
         signals=signals,
     )
+
+
+def _analyze_parsed(raw: str, parsed: ParsedURL, probe: bool = False) -> Analysis:
+    findings, impersonated, official_name, signals = _findings_for(parsed)
+    if probe:
+        findings.extend(_page_findings(parsed, official_name, impersonated))
+        for f in findings:
+            if f.code == "brand_in_page":
+                impersonated = impersonated or f.title.replace("Page pretends to be ", "").replace("Η σελίδα παριστάνει την ", "")
+                break
+    return _finalize(raw, parsed, findings, impersonated, official_name, signals)
 
 
 def _analyze_blob(text: str) -> Analysis:
@@ -904,12 +1024,12 @@ def _analyze_blob(text: str) -> Analysis:
             signals={"blob": True, "href_mismatches": len(extra)},
         )
     if not uniq_urls:
-        return _analyze_parsed(text, parse_url(text.split()[0] if text.split() else text))
+        return _analyze_parsed(text, parse_url(text.split()[0] if text.split() else text), probe=False)
 
-    best = _analyze_parsed(uniq_urls[0], parse_url(uniq_urls[0]))
+    best = _analyze_parsed(uniq_urls[0], parse_url(uniq_urls[0]), probe=False)
     all_findings = list(best.findings) + extra
     for u in uniq_urls[1:]:
-        other = _analyze_parsed(u, parse_url(u))
+        other = _analyze_parsed(u, parse_url(u), probe=False)
         if other.score > best.score:
             best = other
         all_findings.extend(other.findings)
@@ -941,7 +1061,7 @@ def _analyze_blob(text: str) -> Analysis:
     )
 
 
-def analyze(url: str) -> Analysis:
+def analyze(url: str, probe: bool = False) -> Analysis:
     raw = (url or "").strip()
     if not raw:
         f = Finding(
@@ -998,4 +1118,4 @@ def analyze(url: str) -> Analysis:
             findings=(f,),
             signals={"error": str(exc)},
         )
-    return _analyze_parsed(raw, parsed)
+    return _analyze_parsed(raw, parsed, probe=probe)

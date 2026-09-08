@@ -178,7 +178,7 @@ class PhishGuardApp:
         url = self.url_var.get().strip()
         if not url:
             return
-        result = analyze(url)
+        result = analyze(url, probe=True)
         label = result.verdict_el if self.lang == "el" else result.verdict.replace("_", " ")
         color = {
             "official": COLORS["good"],

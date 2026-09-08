@@ -14,7 +14,7 @@ def _esc(value: str) -> str:
 
 def main() -> int:
     url = sys.stdin.read()
-    result = analyze(url)
+    result = analyze(url, probe=True)
     out = sys.stdout
     out.write("__PG__\n")
     out.write(f"verdict={_esc(result.verdict)}\n")
