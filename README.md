@@ -19,10 +19,10 @@
 
 ## Windows εφαρμογή (MSI)
 
-Κατέβασε το installer από το repo:
+Κατέβασε το installer από τη **ρίζα του repo** (φαίνεται στην πρώτη σελίδα στο GitHub):
 
-- [`release/PhishGuard-Setup.msi`](release/PhishGuard-Setup.msi) (~12 MB, Windows 10/11 64-bit)
-- [`release/msi-phishscan.zip`](release/msi-phishscan.zip) — το ίδιο MSI σε zip
+- [`PhishGuard-Setup.msi`](PhishGuard-Setup.msi) (~12 MB, Windows 10/11 64-bit)
+- [`release/msi-phishscan.zip`](release/msi-phishscan.zip) — το ίδιο σε zip
 
 Το παράθυρο Windows κατεβάζει σύντομα το HTML (χωρίς login) για να πιάσει ψεύτικες φόρμες κωδικού.
 
