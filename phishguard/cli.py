@@ -40,9 +40,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("-j", "--json", action="store_true", help="JSON output")
     parser.add_argument("-f", "--file", help="File with one URL per line")
     parser.add_argument("--serve", action="store_true", help="Start the web UI")
+    parser.add_argument("--desktop", action="store_true", help="Open the desktop window")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args(argv)
+
+    if args.desktop:
+        from phishguard.desktop import main as desktop_main
+
+        return desktop_main()
 
     if args.serve:
         import uvicorn

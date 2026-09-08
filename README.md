@@ -17,7 +17,26 @@
 - Δωρεάν hosting (`web.app`, `github.io`, `netlify.app`, …)
 - Ύποπτα TLD, HTTP σε σελίδες login, shorteners, αόρατους χαρακτήρες
 
-## Εγκατάσταση
+## Windows εφαρμογή (MSI)
+
+Κατέβασε το installer από το repo:
+
+- [`release/PhishGuard-Setup.msi`](release/PhishGuard-Setup.msi) (~12 MB, Windows 10/11 64-bit)
+
+Διπλό κλικ στο MSI → εγκατάσταση στο `C:\Program Files\PhishGuard\`. Άνοιξε **PhishGuard** από το μενού Έναρξη ή τρέξε:
+
+`C:\Program Files\PhishGuard\PhishGuard.exe`
+
+Είναι κανονικό παράθυρο Windows (όχι browser). Ο σύνδεσμος δεν ανοίγεται.
+
+Για να ξαναχτίσεις το MSI σε Linux:
+
+```bash
+sudo apt-get install mingw-w64 msitools
+bash packaging/windows/build_msi.sh
+```
+
+## Εγκατάσταση (Python / web / CLI)
 
 ```bash
 python3 -m venv .venv
@@ -34,10 +53,16 @@ phishguard "https://login.microsoft.com.secure-auth.xyz/signin"
 phishguard --json "https://login.microsoftonline.com/"
 ```
 
-Web UI (δεν κάνει fetch των URLs που επικολλάτε):
+Web UI:
 
 ```bash
 phishguard --serve --host 127.0.0.1 --port 8000
+```
+
+Παράθυρο εφαρμογής (tkinter):
+
+```bash
+phishguard --desktop
 ```
 
 Ανοίξτε http://127.0.0.1:8000
