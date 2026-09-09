@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.PhishGuard" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:statusBarColor">#07090F</item>
+        <item name="android:navigationBarColor">#07090F</item>
+        <item name="android:windowBackground">@color/splash_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

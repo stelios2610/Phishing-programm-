@@ -76,8 +76,24 @@ phishguard --desktop
 
 `POST /api/analyze` με JSON `{"url":"..."}`.
 
+## Android (Google Play)
+
+Ο φάκελος [`android/`](android/) είναι εφαρμογή για κινητό (WebView, ίδια λογική με τα Windows). Κατεβάζει HTML χωρίς login.
+
+- Οδηγίες Play Store: [`docs/play-store.md`](docs/play-store.md)
+- Πολιτική απορρήτου: [`docs/privacy-policy.md`](docs/privacy-policy.md)
+- Package: `com.phishguard.scanner`
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+Το Windows MSI παραμένει στη ρίζα: [`PhishGuard-Setup.msi`](PhishGuard-Setup.msi).
+
 ## Tests
 
 ```bash
 pytest -q
+node tests/test_android_engine.js
 ```
