@@ -15,6 +15,18 @@ android {
         versionName = "1.0.0"
     }
 
+    val uploadStore = System.getenv("PHISHGUARD_STORE_FILE")
+    if (!uploadStore.isNullOrBlank()) {
+        signingConfigs {
+            create("upload") {
+                storeFile = file(uploadStore)
+                storePassword = System.getenv("PHISHGUARD_STORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("PHISHGUARD_KEY_ALIAS") ?: "phishguard"
+                keyPassword = System.getenv("PHISHGUARD_KEY_PASSWORD") ?: ""
+            }
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
@@ -25,6 +37,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (!uploadStore.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("upload")
+            }
         }
     }
     compileOptions {
