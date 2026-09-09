@@ -83,6 +83,9 @@ phishguard --desktop
 - Οδηγίες Play Store: [`docs/play-store.md`](docs/play-store.md)
 - Πολιτική απορρήτου: [`docs/privacy-policy.md`](docs/privacy-policy.md)
 - Package: `com.phishguard.scanner`
+- Play Store αρχείο (AAB): [`release/PhishGuard-Play.aab`](release/PhishGuard-Play.aab)
+
+Αυτό το `.aab` το ανεβάζεις στο Play Console. Το keystore **δεν** είναι στο GitHub — κράτα το αρχείο κλειδιών ιδιωτικά.
 
 ```bash
 cd android

@@ -51,7 +51,11 @@ cp keystore.properties.example keystore.properties
 ./gradlew bundleRelease
 ```
 
-Upload `app/build/outputs/bundle/release/app-release.aab` in Play Console.
+Ready-made signed Play file: [`release/PhishGuard-Play.aab`](../release/PhishGuard-Play.aab)
+
+Keep the upload `.jks` private. It is not in the repo. Without it you cannot ship updates.
+
+If you rebuild locally, upload `app/build/outputs/bundle/release/app-release.aab`.
 
 Debug APK (sideload test):
 
