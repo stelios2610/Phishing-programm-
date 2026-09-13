@@ -186,3 +186,8 @@ window.phishguardSetUrl = function (url) {
 
 applyLang();
 initChips();
+if (location.hash.length > 2) {
+  try {
+    window.phishguardSetUrl(decodeURIComponent(location.hash.slice(1)));
+  } catch (_) {}
+}
