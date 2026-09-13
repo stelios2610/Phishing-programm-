@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <link rel="icon" href="logo-64.png" type="image/png" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>PhishGuard</title>
+</head>
+<body>
+  <div class="bg"></div>
+  <header class="top">
+    <div class="brand">
+      <span class="shield" aria-hidden="true"><img src="logo-64.png" alt="PhishGuard" width="40" height="40" /></span>
+      <div>
+        <strong>PhishGuard</strong>
+        <span class="tag">URL + HTML · χωρίς login / χωρίς JavaScript</span>
+      </div>
+    </div>
+    <div class="lang">
+      <button type="button" data-lang="el" class="on">EL</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1 data-i18n="hero">Έλεγχος phishing για Microsoft και τα πάντα</h1>
+      <p class="lede" data-i18n="lede">
+        Επικολλήστε URL. Ελέγχεται το domain και κατεβαίνει μόνο το HTML (χωρίς login, χωρίς JavaScript)
+        για φόρμες κωδικού και ψεύτικα brands.
+      </p>
+    </section>
+
+    <form id="form" class="panel">
+      <label for="url" data-i18n="label">URL</label>
+      <div class="row">
+        <input id="url" name="url" type="text" autocomplete="off" spellcheck="false" inputmode="url"
+               placeholder="https://login.microsoftonline.com.evil.xyz/signin" />
+        <button type="submit" data-i18n="analyze">Ανάλυση</button>
+      </div>
+      <p class="hint" data-i18n="hint">Enter για ανάλυση. Δοκιμάστε τα παραδείγματα παρακάτω.</p>
+    </form>
+
+    <div id="result" class="result hidden" aria-live="polite"></div>
+
+    <section class="examples">
+      <h2 data-i18n="examples">Παραδείγματα</h2>
+      <div class="chips" id="chips"></div>
+    </section>
+
+    <section class="grid">
+      <article>
+        <h3 data-i18n="c1t">Microsoft 365 / Outlook</h3>
+        <p data-i18n="c1"></p>
+      </article>
+      <article>
+        <h3 data-i18n="c2t">Τράπεζες & gov.gr</h3>
+        <p data-i18n="c2"></p>
+      </article>
+      <article>
+        <h3 data-i18n="c3t">Διαβάζει τη σελίδα, δεν συνδέεται</h3>
+        <p data-i18n="c3"></p>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    <span data-i18n="footer"></span>
+  </footer>
+  <script src="catalog.js"></script>
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
