@@ -1,0 +1,4 @@
+.venv/
+packaging/windows/stage/
+__pycache__/
+*.pyc
